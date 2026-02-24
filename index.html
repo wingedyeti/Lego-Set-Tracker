@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LEGO Set Tracker</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧱</text></svg>">
+</head>
+<body>
+
+  <!-- ── Header ──────────────────────────────────────────────────── -->
+  <header class="app-header">
+    <h1>🧱 LEGO Set Tracker</h1>
+    <div class="header-actions">
+      <button id="btn-add-set">+ Add Set</button>
+      <button id="btn-import">Import</button>
+      <button id="btn-refresh-all">↻ Refresh Missing</button>
+      <button id="btn-export-csv">Export CSV</button>
+      <button id="btn-export-json">Export JSON</button>
+      <button id="btn-settings">Settings</button>
+    </div>
+  </header>
+
+  <!-- ── Dashboard ───────────────────────────────────────────────── -->
+  <section class="dashboard">
+    <div class="stat-card">
+      <div class="stat-value" id="stat-unique">0</div>
+      <div class="stat-label">Unique Sets</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="stat-total">0</div>
+      <div class="stat-label">Total Sets</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="stat-pieces">0</div>
+      <div class="stat-label">Total Pieces</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="stat-incomplete">0</div>
+      <div class="stat-label">Incomplete</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="stat-nobox">0</div>
+      <div class="stat-label">No Box</div>
+    </div>
+    <div class="stat-card" style="grid-column: 1 / -1;">
+      <div id="stat-breakdown" style="display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center;"></div>
+    </div>
+  </section>
+
+  <!-- ── Controls ────────────────────────────────────────────────── -->
+  <section class="controls">
+    <input type="text" class="search-box" id="search-input" placeholder="Search by name, set number, theme, or notes... (comma = OR)">
+    <select class="filter-select" id="filter-status">
+      <option value="">All Statuses</option>
+    </select>
+    <select class="filter-select" id="filter-completeness">
+      <option value="">All</option>
+    </select>
+    <select class="filter-select" id="filter-location">
+      <option value="">All Locations</option>
+    </select>
+    <span id="result-count" style="font-size: 0.85rem; color: #666;"></span>
+  </section>
+
+  <!-- ── Bulk Actions Bar ────────────────────────────────────────── -->
+  <section id="bulk-bar" class="bulk-bar" style="display:none;">
+    <span id="bulk-count">0 selected</span>
+    <select id="bulk-status" class="filter-select">
+      <option value="">Status...</option>
+      <option value="Sealed">Sealed</option>
+      <option value="Built - On Display">Built - On Display</option>
+      <option value="In Storage">In Storage</option>
+    </select>
+    <select id="bulk-completeness" class="filter-select">
+      <option value="">Complete?...</option>
+      <option value="Complete">Complete</option>
+      <option value="Incomplete">Incomplete</option>
+    </select>
+    <select id="bulk-hasbox" class="filter-select">
+      <option value="">Box...</option>
+      <option value="yes">Has Box</option>
+      <option value="no">No Box</option>
+    </select>
+    <select id="bulk-hasinstructions" class="filter-select">
+      <option value="">Instructions...</option>
+      <option value="yes">Has Instructions</option>
+      <option value="no">No Instructions</option>
+    </select>
+    <input type="text" id="bulk-location" class="search-box" placeholder="Location..." style="max-width:140px;">
+    <button class="btn btn-primary btn-sm" onclick="App.bulkApply()">Apply</button>
+    <button class="btn btn-secondary btn-sm" onclick="App.bulkClearSelection()">Clear Selection</button>
+  </section>
+
+  <!-- ── Collection Table ────────────────────────────────────────── -->
+  <section class="table-container">
+    <table class="collection-table">
+      <thead>
+        <tr>
+          <th style="cursor:default;"><input type="checkbox" id="select-all" onchange="App.toggleSelectAll(this.checked)"></th>
+          <th style="cursor:default;">Image</th>
+          <th data-sort="setNumber" onclick="App.sortBy('setNumber')">Set # <span class="sort-arrow">▲</span></th>
+          <th data-sort="name" onclick="App.sortBy('name')">Name <span class="sort-arrow">▲</span></th>
+          <th data-sort="theme" onclick="App.sortBy('theme')">Theme <span class="sort-arrow">▲</span></th>
+          <th data-sort="year" onclick="App.sortBy('year')">Year <span class="sort-arrow">▲</span></th>
+          <th data-sort="pieceCount" onclick="App.sortBy('pieceCount')">Pieces <span class="sort-arrow">▲</span></th>
+          <th data-sort="status" onclick="App.sortBy('status')">Status <span class="sort-arrow">▲</span></th>
+          <th data-sort="completeness" onclick="App.sortBy('completeness')">Complete? <span class="sort-arrow">▲</span></th>
+          <th style="cursor:default;">Box</th>
+          <th style="cursor:default;">Instr.</th>
+          <th data-sort="location" onclick="App.sortBy('location')">Location <span class="sort-arrow">▲</span></th>
+          <th data-sort="quantity" onclick="App.sortBy('quantity')">Qty <span class="sort-arrow">▲</span></th>
+          <th style="cursor:default;">Notes</th>
+          <th style="cursor:default;">For Sale</th>
+          <th style="cursor:default;">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="collection-body"></tbody>
+    </table>
+
+    <div id="empty-state" class="empty-state" style="display:none;">
+      <h2>No sets yet!</h2>
+      <p>Click <strong>+ Add Set</strong> to start tracking your collection, or <strong>Import</strong> a CSV/JSON file.</p>
+      <button class="btn btn-primary" onclick="App.openAddModal()">+ Add Your First Set</button>
+    </div>
+  </section>
+
+  <!-- ── Add/Edit Set Modal ──────────────────────────────────────── -->
+  <div class="modal-overlay" id="set-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="set-modal-title">Add Set</h2>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="set-form">
+          <div class="form-group">
+            <label for="form-set-number">Set Number *</label>
+            <div class="lookup-row">
+              <input type="text" id="form-set-number" placeholder="e.g. 75192" required>
+              <button type="button" id="btn-lookup" class="btn btn-secondary">Look Up</button>
+            </div>
+          </div>
+
+          <div id="lookup-status" class="lookup-status" style="display:none;"></div>
+
+          <div id="set-preview" class="set-preview" style="display:none;">
+            <img id="preview-img" src="" alt="Set preview">
+            <div class="set-info">
+              <h3 id="preview-name"></h3>
+              <p id="preview-info"></p>
+            </div>
+          </div>
+
+          <input type="hidden" id="form-image-url">
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="form-name">Name</label>
+              <input type="text" id="form-name" placeholder="Auto-filled on lookup">
+            </div>
+            <div class="form-group">
+              <label for="form-theme">Theme</label>
+              <input type="text" id="form-theme" placeholder="Auto-filled on lookup">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="form-year">Year</label>
+              <input type="number" id="form-year" placeholder="e.g. 2024">
+            </div>
+            <div class="form-group">
+              <label for="form-pieces">Pieces</label>
+              <input type="number" id="form-pieces" placeholder="Auto-filled on lookup">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="form-status">Status</label>
+              <select id="form-status">
+                <option value="">— Select —</option>
+                <option value="Sealed">Sealed</option>
+                <option value="Built - On Display">Built - On Display</option>
+                <option value="In Storage">In Storage</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="form-completeness">Complete?</label>
+              <select id="form-completeness">
+                <option value="">— Select —</option>
+                <option value="Complete">Complete</option>
+                <option value="Incomplete">Incomplete</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>&nbsp;</label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="form-hasbox" checked> Has Box
+              </label>
+            </div>
+            <div class="form-group">
+              <label>&nbsp;</label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="form-hasinstructions" checked> Has Instructions
+              </label>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="form-location">Location</label>
+              <input type="text" id="form-location" placeholder="e.g. Display, Bin 1" list="location-suggestions">
+              <datalist id="location-suggestions"></datalist>
+            </div>
+            <div class="form-group">
+              <label for="form-quantity">Quantity</label>
+              <input type="number" id="form-quantity" min="1" value="1">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="form-notes">Notes</label>
+            <textarea id="form-notes" placeholder="e.g. Missing 2x4 red brick, minifig has broken arm..."></textarea>
+          </div>
+
+          <div class="modal-footer" style="border:none; padding: 0;">
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Set</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Settings Modal ──────────────────────────────────────────── -->
+  <div class="modal-overlay" id="settings-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Settings</h2>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="settings-form">
+          <div class="form-group">
+            <label for="settings-api-key">Rebrickable API Key</label>
+            <input type="text" id="settings-api-key" placeholder="Enter your Rebrickable API key">
+            <small style="color: #666;">
+              Get a free key at
+              <a href="https://rebrickable.com/users/" target="_blank" rel="noopener">rebrickable.com</a>
+              → Profile → Settings → API
+            </small>
+          </div>
+
+          <div class="modal-footer" style="border:none; padding: 0;">
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Settings</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Import Modal (Column Mapping) ───────────────────────────── -->
+  <div class="modal-overlay" id="import-modal">
+    <div class="modal" style="max-width: 700px;">
+      <div class="modal-header">
+        <h2>Import CSV — Map Columns</h2>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="import-mapping-content"></div>
+        <div id="import-progress"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary" id="btn-import-confirm">Import</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden file input for import -->
+  <input type="file" id="import-file-input" accept=".csv,.json" style="display:none;">
+
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+
+  <!-- Scripts (order matters: storage → api → export → import → app) -->
+  <script src="js/storage.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/export.js"></script>
+  <script src="js/import.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
