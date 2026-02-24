@@ -2,6 +2,7 @@
 
 const STORAGE_KEYS = {
   COLLECTION: 'lego_collection',
+  LISTS: 'lego_lists',
   API_KEY: 'rebrickable_api_key',
   SETTINGS: 'lego_app_settings',
 };
@@ -42,6 +43,7 @@ const Storage = {
       year: setData.year || null,
       pieceCount: setData.pieceCount || null,
       imageUrl: setData.imageUrl || '',
+      listType: setData.listType || 'collection',
       status: setData.status || '',
       completeness: setData.completeness || 'Complete',
       hasBox: setData.hasBox != null ? setData.hasBox : true,
@@ -98,6 +100,7 @@ const Storage = {
           year: setData.year || null,
           pieceCount: setData.pieceCount || null,
           imageUrl: setData.imageUrl || '',
+          listType: setData.listType || 'collection',
           status: setData.status || '',
           completeness: setData.completeness || 'Complete',
           hasBox: setData.hasBox != null ? setData.hasBox : true,
@@ -158,12 +161,81 @@ const Storage = {
     };
   },
 
+  // ── Custom Lists ──────────────────────────────────────────────────
+
+  getLists() {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.LISTS);
+      return data ? JSON.parse(data) : [];
+    } catch (e) {
+      return [];
+    }
+  },
+
+  saveLists(lists) {
+    localStorage.setItem(STORAGE_KEYS.LISTS, JSON.stringify(lists));
+  },
+
+  createList(name) {
+    const lists = this.getLists();
+    const list = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+      name: name.trim(),
+      setIds: [],
+    };
+    lists.push(list);
+    this.saveLists(lists);
+    return list;
+  },
+
+  renameList(listId, newName) {
+    const lists = this.getLists();
+    const list = lists.find(l => l.id === listId);
+    if (list) { list.name = newName.trim(); this.saveLists(lists); }
+  },
+
+  deleteList(listId) {
+    const lists = this.getLists().filter(l => l.id !== listId);
+    this.saveLists(lists);
+  },
+
+  addSetsToList(listId, setIds) {
+    const lists = this.getLists();
+    const list = lists.find(l => l.id === listId);
+    if (!list) return 0;
+    const existing = new Set(list.setIds);
+    let added = 0;
+    for (const id of setIds) {
+      if (!existing.has(id)) { list.setIds.push(id); existing.add(id); added++; }
+    }
+    this.saveLists(lists);
+    return added;
+  },
+
+  removeSetsFromList(listId, setIds) {
+    const lists = this.getLists();
+    const list = lists.find(l => l.id === listId);
+    if (!list) return;
+    const removeSet = new Set(setIds);
+    list.setIds = list.setIds.filter(id => !removeSet.has(id));
+    this.saveLists(lists);
+  },
+
+  getListById(listId) {
+    return this.getLists().find(l => l.id === listId) || null;
+  },
+
   // ── Data migration ──────────────────────────────────────────────
 
   migrate() {
     const collection = this.getCollection();
     let changed = false;
     for (const s of collection) {
+      // Add listType if missing
+      if (!s.listType) {
+        s.listType = 'collection';
+        changed = true;
+      }
       // Migrate hasBox from string to boolean
       if (typeof s.hasBox === 'string') {
         s.hasBox = s.hasBox === 'Has Box';

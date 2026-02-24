@@ -2,6 +2,7 @@
 
 const App = {
   // ── State ─────────────────────────────────────────────────────────
+  currentView: 'collection', // 'collection', 'wishlist', or a custom list ID
   sortField: 'dateAdded',
   sortDir: 'desc',
   searchQuery: '',
@@ -98,27 +99,121 @@ const App = {
   // ── Rendering ─────────────────────────────────────────────────────
 
   render() {
+    this.renderListBar();
     this.renderDashboard();
     this.renderFilters();
     this.renderTable();
+    this.populateListDropdowns();
   },
 
+  // ── List Bar ──────────────────────────────────────────────────────
+
+  renderListBar() {
+    const bar = document.getElementById('list-bar');
+    const lists = Storage.getLists();
+    const cv = this.currentView;
+
+    let html = `<button class="list-pill ${cv === 'collection' ? 'active' : ''}" onclick="App.switchView('collection')">Collection</button>`;
+    html += `<button class="list-pill ${cv === 'wishlist' ? 'active' : ''}" onclick="App.switchView('wishlist')">Wishlist</button>`;
+
+    for (const list of lists) {
+      const active = cv === list.id ? 'active' : '';
+      html += `<span class="list-pill-wrap">`;
+      html += `<button class="list-pill ${active}" onclick="App.switchView('${list.id}')">${this.esc(list.name)}</button>`;
+      html += `<button class="list-pill-action" onclick="App.openListMenu('${list.id}', event)" title="List options">⋯</button>`;
+      html += `</span>`;
+    }
+
+    html += `<button class="list-pill list-pill-add" onclick="App.createNewList()">+ New List</button>`;
+    bar.innerHTML = html;
+  },
+
+  switchView(view) {
+    this.currentView = view;
+    this.selectedIds.clear();
+    this.updateBulkBar();
+    this.render();
+  },
+
+  createNewList() {
+    const name = prompt('List name:');
+    if (!name || !name.trim()) return;
+    const list = Storage.createList(name);
+    this.switchView(list.id);
+    this.toast(`List "${list.name}" created!`, 'success');
+  },
+
+  openListMenu(listId, event) {
+    event.stopPropagation();
+    const list = Storage.getListById(listId);
+    if (!list) return;
+    const action = prompt(`List: ${list.name}\n\nType "rename" to rename or "delete" to delete:`);
+    if (!action) return;
+    if (action.toLowerCase() === 'rename') {
+      const newName = prompt('New name:', list.name);
+      if (newName && newName.trim()) {
+        Storage.renameList(listId, newName);
+        this.render();
+        this.toast('List renamed!', 'success');
+      }
+    } else if (action.toLowerCase() === 'delete') {
+      if (confirm(`Delete list "${list.name}"? (Sets won't be deleted)`)) {
+        Storage.deleteList(listId);
+        if (this.currentView === listId) this.currentView = 'collection';
+        this.render();
+        this.toast('List deleted.', 'success');
+      }
+    }
+  },
+
+  isWishlistView() { return this.currentView === 'wishlist'; },
+  isCustomListView() { return this.currentView !== 'collection' && this.currentView !== 'wishlist'; },
+
   renderDashboard() {
-    const stats = Storage.getStats();
-    document.getElementById('stat-unique').textContent = stats.uniqueSets;
-    document.getElementById('stat-total').textContent = stats.totalSets;
-    document.getElementById('stat-pieces').textContent = stats.totalPieces.toLocaleString();
-    document.getElementById('stat-incomplete').textContent = stats.incomplete;
-    document.getElementById('stat-nobox').textContent = stats.noBox;
+    // Compute stats from current view's sets
+    const viewSets = this._getViewSets();
+    const totalSets = viewSets.reduce((sum, s) => sum + (s.quantity || 1), 0);
+    const totalPieces = viewSets.reduce((sum, s) => sum + ((s.pieceCount || 0) * (s.quantity || 1)), 0);
+
+    document.getElementById('stat-unique').textContent = viewSets.length;
+    document.getElementById('stat-total').textContent = totalSets;
+    document.getElementById('stat-pieces').textContent = totalPieces.toLocaleString();
+
+    const incompleteStat = document.getElementById('stat-incomplete');
+    const noboxStat = document.getElementById('stat-nobox');
+    if (this.isWishlistView()) {
+      incompleteStat.parentElement.style.display = 'none';
+      noboxStat.parentElement.style.display = 'none';
+    } else {
+      incompleteStat.parentElement.style.display = '';
+      noboxStat.parentElement.style.display = '';
+      incompleteStat.textContent = viewSets.filter(s => s.completeness === 'Incomplete').length;
+      noboxStat.textContent = viewSets.filter(s => !s.hasBox).length;
+    }
 
     const breakdown = document.getElementById('stat-breakdown');
-    if (breakdown) {
-      const badges = [];
-      for (const [st, count] of Object.entries(stats.byStatus)) {
-        if (st !== 'Unset') badges.push(`<span class="badge badge-status">${st}: ${count}</span>`);
-      }
-      breakdown.innerHTML = badges.join(' ');
+    if (breakdown && !this.isWishlistView()) {
+      const byStatus = {};
+      for (const s of viewSets) { const st = s.status || 'Unset'; byStatus[st] = (byStatus[st] || 0) + (s.quantity || 1); }
+      breakdown.innerHTML = Object.entries(byStatus)
+        .filter(([st]) => st !== 'Unset')
+        .map(([st, count]) => `<span class="badge badge-status">${st}: ${count}</span>`)
+        .join(' ');
+    } else if (breakdown) {
+      breakdown.innerHTML = '';
     }
+  },
+
+  /** Get the raw set array for the current view (before search/filter/sort) */
+  _getViewSets() {
+    const all = Storage.getCollection();
+    if (this.currentView === 'collection') return all.filter(s => s.listType !== 'wishlist');
+    if (this.currentView === 'wishlist') return all.filter(s => s.listType === 'wishlist');
+    // Custom list
+    const list = Storage.getListById(this.currentView);
+    if (!list) return [];
+    const idSet = new Set(list.setIds);
+    return all.filter(s => idSet.has(s.id));
   },
 
   renderFilters() {
@@ -157,11 +252,28 @@ const App = {
     }
 
     emptyState.style.display = 'none';
-    const total = Storage.getCollection().length;
+    const viewSets = this._getViewSets();
     document.getElementById('result-count').textContent =
-      collection.length === total ? `${total} sets` : `${collection.length} of ${total} sets`;
+      collection.length === viewSets.length ? `${viewSets.length} sets` : `${collection.length} of ${viewSets.length} sets`;
 
-    tbody.innerHTML = collection.map(s => `
+    const isWL = this.isWishlistView();
+    const isCL = this.isCustomListView();
+
+    // Show/hide columns based on view
+    document.querySelectorAll('.col-status, .col-complete, .col-box, .col-instr').forEach(el => {
+      el.style.display = isWL ? 'none' : '';
+    });
+    document.querySelectorAll('.col-purchased').forEach(el => {
+      el.style.display = isWL ? '' : 'none';
+    });
+
+    tbody.innerHTML = collection.map(s => {
+      const extraAction = isWL
+        ? `<button class="btn btn-purchased btn-sm" onclick="App.purchaseSet('${s.id}')">Purchased ✓</button>`
+        : isCL
+          ? `<button class="btn btn-secondary btn-sm" onclick="App.removeFromList('${s.id}')">Remove</button>`
+          : '';
+      return `
       <tr class="${this.selectedIds.has(s.id) ? 'row-selected' : ''}">
         <td><input type="checkbox" class="row-select" data-id="${s.id}" ${this.selectedIds.has(s.id) ? 'checked' : ''} onchange="App.toggleSelect('${s.id}', this.checked)"></td>
         <td>
@@ -177,20 +289,21 @@ const App = {
         <td>${this.esc(s.theme)}</td>
         <td>${s.year || '—'}</td>
         <td>${s.pieceCount ? s.pieceCount.toLocaleString() : '—'}</td>
-        <td>
+        <td class="col-status" ${isWL ? 'style="display:none"' : ''}>
           <select class="inline-select" onchange="App.inlineUpdate('${s.id}', 'status', this.value)">
             <option value="" ${!s.status ? 'selected' : ''}>—</option>
             ${this.STATUSES.map(st => `<option value="${st}" ${s.status === st ? 'selected' : ''}>${st}</option>`).join('')}
           </select>
         </td>
-        <td>
+        <td class="col-complete" ${isWL ? 'style="display:none"' : ''}>
           <select class="inline-select inline-sm" onchange="App.inlineUpdate('${s.id}', 'completeness', this.value)">
             <option value="" ${!s.completeness ? 'selected' : ''}>—</option>
             ${this.COMPLETENESS.map(c => `<option value="${c}" ${s.completeness === c ? 'selected' : ''}>${c}</option>`).join('')}
           </select>
         </td>
-        <td><input type="checkbox" class="inline-checkbox" ${s.hasBox ? 'checked' : ''} onchange="App.inlineUpdate('${s.id}', 'hasBox', this.checked)"></td>
-        <td><input type="checkbox" class="inline-checkbox" ${s.hasInstructions ? 'checked' : ''} onchange="App.inlineUpdate('${s.id}', 'hasInstructions', this.checked)"></td>
+        <td class="col-box" ${isWL ? 'style="display:none"' : ''}><input type="checkbox" class="inline-checkbox" ${s.hasBox ? 'checked' : ''} onchange="App.inlineUpdate('${s.id}', 'hasBox', this.checked)"></td>
+        <td class="col-instr" ${isWL ? 'style="display:none"' : ''}><input type="checkbox" class="inline-checkbox" ${s.hasInstructions ? 'checked' : ''} onchange="App.inlineUpdate('${s.id}', 'hasInstructions', this.checked)"></td>
+        <td class="col-purchased" ${isWL ? '' : 'style="display:none"'}>${isWL ? `<button class="btn btn-purchased btn-sm" onclick="App.purchaseSet('${s.id}')">Purchased ✓</button>` : ''}</td>
         <td>${this.esc(s.location) || '—'}</td>
         <td><input type="number" class="inline-input inline-qty" value="${s.quantity || 1}" min="1" onchange="App.inlineUpdate('${s.id}', 'quantity', parseInt(this.value)||1)"></td>
         <td><input type="text" class="inline-input inline-notes" value="${this.esc(s.notes || '')}" placeholder="Add notes..." onchange="App.inlineUpdate('${s.id}', 'notes', this.value)"></td>
@@ -201,12 +314,13 @@ const App = {
         </td>
         <td>
           <div class="actions-cell">
+            ${extraAction}
             <button class="btn btn-secondary btn-sm" onclick="App.openEditModal('${s.id}')">Edit</button>
             <button class="btn btn-danger btn-sm" onclick="App.confirmDelete('${s.id}')">Del</button>
           </div>
         </td>
-      </tr>
-    `).join('');
+      </tr>`;
+    }).join('');
 
     // Update sort arrows
     document.querySelectorAll('.collection-table th[data-sort]').forEach(th => {
@@ -221,8 +335,27 @@ const App = {
     });
   },
 
+  purchaseSet(id) {
+    Storage.updateSet(id, {
+      listType: 'collection',
+      completeness: 'Complete',
+      hasBox: true,
+      hasInstructions: true,
+      status: '',
+    });
+    this.toast('Moved to Collection!', 'success');
+    this.render();
+  },
+
+  removeFromList(setId) {
+    if (!this.isCustomListView()) return;
+    Storage.removeSetsFromList(this.currentView, [setId]);
+    this.render();
+    this.toast('Removed from list.', 'success');
+  },
+
   getFilteredSorted() {
-    let collection = Storage.getCollection();
+    let collection = this._getViewSets();
 
     // Search — comma-separated terms are OR'd together
     if (this.searchQuery) {
@@ -337,7 +470,13 @@ const App = {
     const boxVal = document.getElementById('bulk-hasbox').value;
     const instrVal = document.getElementById('bulk-hasinstructions').value;
     const loc = document.getElementById('bulk-location').value.trim();
-    if (!status && !comp && !boxVal && !instrVal && !loc) { this.toast('Select a value to apply.', 'error'); return; }
+    const listTarget = document.getElementById('bulk-addtolist')?.value || '';
+    if (!status && !comp && !boxVal && !instrVal && !loc && !listTarget) { this.toast('Select a value to apply.', 'error'); return; }
+    // Add to custom list
+    if (listTarget) {
+      const added = Storage.addSetsToList(listTarget, [...this.selectedIds]);
+      this.toast(`Added ${added} set(s) to list.`, 'success');
+    }
     const updates = {};
     if (status) {
       updates.status = status;
@@ -378,6 +517,13 @@ const App = {
     document.getElementById('lookup-status').style.display = 'none';
     document.getElementById('form-quantity').value = '1';
     // Defaults for new sets
+    this.populateListDropdowns();
+    const addTo = document.getElementById('form-addto');
+    if (addTo) {
+      if (this.isWishlistView()) addTo.value = 'wishlist';
+      else if (this.isCustomListView()) addTo.value = this.currentView;
+      else addTo.value = 'collection';
+    }
     document.getElementById('form-completeness').value = 'Complete';
     document.getElementById('form-hasbox').checked = true;
     document.getElementById('form-hasinstructions').checked = true;
@@ -398,6 +544,9 @@ const App = {
     document.getElementById('form-theme').value = set.theme;
     document.getElementById('form-year').value = set.year || '';
     document.getElementById('form-pieces').value = set.pieceCount || '';
+    this.populateListDropdowns();
+    const addTo = document.getElementById('form-addto');
+    if (addTo) addTo.value = set.listType || 'collection';
     document.getElementById('form-status').value = set.status || '';
     document.getElementById('form-completeness').value = set.completeness || '';
     document.getElementById('form-hasbox').checked = !!set.hasBox;
@@ -420,16 +569,35 @@ const App = {
     document.getElementById('set-modal').classList.add('active');
   },
 
+  // Parse set number input — splits on spaces, commas, periods, and dashes.
+  // Filters out short tokens (variant suffixes like "-1") keeping only 3+ char tokens.
+  parseSetNumbers(input) {
+    const tokens = input.split(/[\s,.\/\-]+/).filter(t => t.length >= 3);
+    return [...new Set(tokens)];
+  },
+
   async lookupSet() {
-    const setNumber = document.getElementById('form-set-number').value.trim();
-    if (!setNumber) {
+    const raw = document.getElementById('form-set-number').value.trim();
+    if (!raw) {
       this.toast('Enter a set number first.', 'error');
       return;
     }
 
+    const numbers = this.parseSetNumbers(raw);
     const statusEl = document.getElementById('lookup-status');
     statusEl.style.display = 'block';
     statusEl.className = 'lookup-status loading';
+
+    if (numbers.length > 1) {
+      // Multi-set: just validate the count, full lookup happens on save
+      statusEl.className = 'lookup-status success';
+      statusEl.textContent = `${numbers.length} set numbers detected — they will be looked up when you save.`;
+      document.getElementById('set-preview').style.display = 'none';
+      return;
+    }
+
+    // Single set — existing lookup behavior
+    const setNumber = numbers[0];
     statusEl.textContent = 'Looking up set...';
 
     try {
@@ -458,14 +626,18 @@ const App = {
     }
   },
 
-  saveSet() {
-    const setData = {
-      setNumber: document.getElementById('form-set-number').value.trim(),
-      name: document.getElementById('form-name').value.trim(),
-      theme: document.getElementById('form-theme').value.trim(),
-      year: parseInt(document.getElementById('form-year').value) || null,
-      pieceCount: parseInt(document.getElementById('form-pieces').value) || null,
-      imageUrl: document.getElementById('form-image-url').value,
+  async saveSet() {
+    const raw = document.getElementById('form-set-number').value.trim();
+    if (!raw) {
+      this.toast('Set number is required.', 'error');
+      return;
+    }
+
+    const numbers = this.parseSetNumbers(raw);
+
+    // Shared properties from the form
+    const sharedProps = {
+      listType: document.getElementById('form-addto')?.value || 'collection',
       status: document.getElementById('form-status').value,
       completeness: document.getElementById('form-completeness').value,
       hasBox: document.getElementById('form-hasbox').checked,
@@ -475,21 +647,77 @@ const App = {
       notes: document.getElementById('form-notes').value.trim(),
     };
 
-    if (!setData.setNumber) {
-      this.toast('Set number is required.', 'error');
+    // Determine if target is a custom list (not collection/wishlist)
+    const targetList = sharedProps.listType;
+    const isCustomList = targetList !== 'collection' && targetList !== 'wishlist';
+    // Sets on custom lists still belong to the collection for the main view
+    if (isCustomList) sharedProps.listType = 'collection';
+
+    if (this.editingId || numbers.length === 1) {
+      // Single set — use form fields directly (may have been filled by lookup)
+      const setData = {
+        setNumber: numbers[0] || raw,
+        name: document.getElementById('form-name').value.trim(),
+        theme: document.getElementById('form-theme').value.trim(),
+        year: parseInt(document.getElementById('form-year').value) || null,
+        pieceCount: parseInt(document.getElementById('form-pieces').value) || null,
+        imageUrl: document.getElementById('form-image-url').value,
+        ...sharedProps,
+      };
+
+      if (this.editingId) {
+        Storage.updateSet(this.editingId, setData);
+        if (isCustomList) Storage.addSetsToList(targetList, [this.editingId]);
+        this.toast('Set updated!', 'success');
+      } else {
+        const entry = Storage.addSet(setData);
+        if (isCustomList) Storage.addSetsToList(targetList, [entry.id]);
+        this.toast('Set added!', 'success');
+      }
+
+      document.getElementById('set-modal').classList.remove('active');
+      this.render();
       return;
     }
 
-    if (this.editingId) {
-      Storage.updateSet(this.editingId, setData);
-      this.toast('Set updated!', 'success');
-    } else {
-      Storage.addSet(setData);
-      this.toast('Set added!', 'success');
+    // Multi-set batch add
+    document.getElementById('set-modal').classList.remove('active');
+    this.toast(`Adding ${numbers.length} sets...`);
+
+    let added = 0, failed = 0;
+    const newIds = [];
+    for (let i = 0; i < numbers.length; i++) {
+      const num = numbers[i];
+      this.toast(`Looking up ${num} (${i + 1}/${numbers.length})...`);
+      try {
+        const data = await API.lookupSetFull(num);
+        const entry = Storage.addSet({
+          setNumber: data.setNumber || num,
+          name: data.name || '',
+          theme: data.theme || '',
+          year: data.year || null,
+          pieceCount: data.pieceCount || null,
+          imageUrl: data.imageUrl || '',
+          ...sharedProps,
+        });
+        newIds.push(entry.id);
+        added++;
+      } catch {
+        // Add with just the set number if lookup fails
+        const entry = Storage.addSet({ setNumber: num, name: '', theme: '', year: null, pieceCount: null, imageUrl: '', ...sharedProps });
+        newIds.push(entry.id);
+        added++;
+        failed++;
+      }
+      // Rate limit
+      if (i < numbers.length - 1) await new Promise(r => setTimeout(r, 1200));
     }
 
-    document.getElementById('set-modal').classList.remove('active');
+    if (isCustomList && newIds.length) Storage.addSetsToList(targetList, newIds);
+
     this.render();
+    const msg = failed ? `Added ${added} sets (${failed} without API data).` : `Added ${added} sets!`;
+    this.toast(msg, 'success');
   },
 
   confirmDelete(id) {
@@ -567,6 +795,23 @@ const App = {
     datalist.innerHTML = locations.map(l => `<option value="${l}">`).join('');
   },
 
+  populateListDropdowns() {
+    const lists = Storage.getLists();
+    const listOptions = lists.map(l => `<option value="${l.id}">${this.esc(l.name)}</option>`).join('');
+
+    // Add/Edit modal "Add to" dropdown
+    const addTo = document.getElementById('form-addto');
+    if (addTo) {
+      addTo.innerHTML = `<option value="collection">Collection</option><option value="wishlist">Wishlist</option>` + listOptions;
+    }
+
+    // Bulk bar "Add to List" dropdown
+    const bulkList = document.getElementById('bulk-addtolist');
+    if (bulkList) {
+      bulkList.innerHTML = `<option value="">Add to List...</option>` + listOptions;
+    }
+  },
+
   // ── Settings Modal ────────────────────────────────────────────────
 
   openSettingsModal() {
@@ -615,7 +860,7 @@ const App = {
   // ── Export ────────────────────────────────────────────────────────
 
   exportCSV() {
-    const collection = Storage.getCollection();
+    const collection = this._getViewSets();
     if (collection.length === 0) {
       this.toast('Nothing to export.', 'error');
       return;
@@ -625,7 +870,7 @@ const App = {
   },
 
   exportJSON() {
-    const collection = Storage.getCollection();
+    const collection = this._getViewSets();
     if (collection.length === 0) {
       this.toast('Nothing to export.', 'error');
       return;

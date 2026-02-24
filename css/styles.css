@@ -97,6 +97,131 @@ body {
   margin-top: 0.25rem;
 }
 
+/* ── List Bar ────────────────────────────────────────────────────── */
+
+.list-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.list-pill-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.list-pill {
+  padding: 0.35rem 0.85rem;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.list-pill:hover {
+  border-color: var(--lego-blue);
+  color: var(--lego-blue);
+}
+
+.list-pill.active {
+  background: var(--lego-blue);
+  color: white;
+  border-color: var(--lego-blue);
+}
+
+.list-pill .pill-count {
+  font-size: 0.7rem;
+  opacity: 0.7;
+  margin-left: 0.3rem;
+}
+
+.list-pill.active .pill-count {
+  opacity: 0.85;
+}
+
+.list-pill-action {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  padding: 0.15rem 0.35rem;
+  margin-left: 0.15rem;
+  border-radius: 50%;
+  transition: background 0.2s, color 0.2s;
+}
+
+.list-pill-action:hover {
+  background: rgba(0,0,0,0.1);
+  color: var(--text);
+}
+
+.list-pill.active .list-pill-action {
+  color: rgba(255,255,255,0.7);
+}
+
+.list-pill.active .list-pill-action:hover {
+  background: rgba(255,255,255,0.2);
+  color: white;
+}
+
+.list-pill-add {
+  padding: 0.35rem 0.7rem;
+  border-radius: 20px;
+  border: 1px dashed var(--border);
+  background: transparent;
+  font-size: 0.82rem;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.list-pill-add:hover {
+  border-color: var(--lego-blue);
+  color: var(--lego-blue);
+}
+
+/* ── Purchased / Remove Buttons ──────────────────────────────────── */
+
+.btn-purchased {
+  background: var(--lego-green);
+  color: white;
+  border: none;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.2s;
+}
+
+.btn-purchased:hover { opacity: 0.85; }
+
+.btn-remove-list {
+  background: none;
+  border: 1px solid var(--border);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.btn-remove-list:hover {
+  border-color: #dc3545;
+  color: #dc3545;
+}
+
 /* ── Controls Bar ────────────────────────────────────────────────── */
 
 .controls {
@@ -235,12 +360,12 @@ body {
 }
 
 .collection-table th {
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 0.5rem;
   text-align: left;
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
   color: var(--text-muted);
   cursor: pointer;
   user-select: none;
@@ -258,8 +383,8 @@ body {
 .collection-table th .sort-arrow.active { opacity: 1; color: var(--lego-red); }
 
 .collection-table td {
-  padding: 0.6rem 1rem;
-  font-size: 0.9rem;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.8rem;
   border-bottom: 1px solid #f0f0f0;
   vertical-align: middle;
 }
@@ -267,16 +392,16 @@ body {
 .collection-table tr:hover { background: #fafafa; }
 
 .collection-table .set-thumb {
-  width: 60px;
-  height: 60px;
+  width: 50px;
+  height: 50px;
   object-fit: contain;
   border-radius: 4px;
   background: #f8f8f8;
 }
 
 .collection-table .set-thumb-placeholder {
-  width: 60px;
-  height: 60px;
+  width: 50px;
+  height: 50px;
   background: #f0f0f0;
   border-radius: 4px;
   display: flex;
@@ -287,8 +412,8 @@ body {
 }
 
 .set-thumb-refresh {
-  width: 60px;
-  height: 60px;
+  width: 50px;
+  height: 50px;
   border-radius: 4px;
   border: 2px dashed var(--lego-blue);
   background: #e8f4fd;
@@ -363,19 +488,19 @@ body {
 .badge-box { background: #fff3cd; color: #856404; }
 
 .inline-select {
-  padding: 0.2rem 0.3rem;
+  padding: 0.15rem 0.2rem;
   border: 1px solid var(--border);
   border-radius: 4px;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   background: var(--surface);
   cursor: pointer;
   outline: none;
-  max-width: 160px;
+  max-width: 140px;
 }
 
 .inline-select:focus { border-color: var(--lego-blue); }
 
-.inline-select.inline-sm { max-width: 110px; font-size: 0.75rem; }
+.inline-select.inline-sm { max-width: 100px; font-size: 0.7rem; }
 
 .inline-checkbox {
   width: 18px;
@@ -385,10 +510,10 @@ body {
 }
 
 .inline-input {
-  padding: 0.25rem 0.4rem;
+  padding: 0.2rem 0.3rem;
   border: 1px solid var(--border);
   border-radius: 4px;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   font-family: inherit;
   outline: none;
   background: var(--surface);
@@ -397,13 +522,13 @@ body {
 .inline-input:focus { border-color: var(--lego-blue); }
 
 .inline-qty {
-  width: 50px;
+  width: 42px;
   text-align: center;
 }
 
 .inline-notes {
   width: 100%;
-  min-width: 120px;
+  min-width: 90px;
 }
 
 .actions-cell {
@@ -695,20 +820,44 @@ body {
 /* ── Responsive ──────────────────────────────────────────────────── */
 
 @media (max-width: 768px) {
-  .app-header { padding: 0.75rem 1rem; flex-wrap: wrap; gap: 0.5rem; }
-  .app-header h1 { font-size: 1.2rem; }
-  .dashboard { padding: 1rem; grid-template-columns: repeat(2, 1fr); }
-  .controls { padding: 0.75rem 1rem; }
-  .table-container { padding: 0 1rem 1rem; }
-  .collection-table td, .collection-table th { padding: 0.5rem; font-size: 0.8rem; }
-  .collection-table .set-thumb { width: 40px; height: 40px; }
+  .app-header { padding: 0.5rem 0.75rem; flex-wrap: wrap; gap: 0.4rem; }
+  .app-header h1 { font-size: 1.1rem; }
+  .dashboard { padding: 0.75rem; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+  .stat-card { padding: 0.6rem 0.75rem; }
+  .stat-card .stat-value { font-size: 1.4rem; }
+  .controls { padding: 0.5rem 0.75rem; gap: 0.4rem; }
+  .search-box { min-width: 150px; font-size: 0.8rem; padding: 0.4rem 0.5rem; }
+  .filter-select { font-size: 0.75rem; padding: 0.35rem 0.4rem; }
+  .table-container { padding: 0 0.5rem 0.75rem; }
+  .collection-table td { padding: 0.3rem 0.35rem; font-size: 0.7rem; }
+  .collection-table th { padding: 0.35rem 0.35rem; font-size: 0.65rem; }
+  .collection-table .set-thumb,
+  .collection-table .set-thumb-placeholder,
+  .set-thumb-refresh { width: 36px; height: 36px; }
+  .inline-select { font-size: 0.65rem; max-width: 100px; padding: 0.1rem 0.15rem; }
+  .inline-select.inline-sm { font-size: 0.6rem; max-width: 80px; }
+  .inline-input { font-size: 0.65rem; padding: 0.15rem 0.2rem; }
+  .inline-qty { width: 34px; }
+  .inline-notes { min-width: 60px; }
+  .inline-checkbox { width: 14px; height: 14px; }
+  .btn-sm { padding: 0.2rem 0.4rem; font-size: 0.65rem; }
+  .links-cell a { font-size: 0.6rem; padding: 0.1rem 0.25rem; }
   .form-row { grid-template-columns: 1fr; }
   .modal { margin: 0.5rem; }
   .header-actions { flex-wrap: wrap; }
-  .csv-col-name { flex: 0 0 120px; }
+  .header-actions button { font-size: 0.75rem; padding: 0.3rem 0.5rem; }
+  .csv-col-name { flex: 0 0 100px; }
+  .bulk-bar { padding: 0.5rem 0.75rem; gap: 0.4rem; }
+  .list-bar { padding: 0.5rem 0.75rem; gap: 0.35rem; }
+  .list-pill { font-size: 0.75rem; padding: 0.25rem 0.6rem; }
+  .list-pill-add { font-size: 0.75rem; padding: 0.25rem 0.6rem; }
 }
 
 @media (max-width: 480px) {
-  .dashboard { grid-template-columns: 1fr 1fr; gap: 0.5rem; }
-  .stat-card .stat-value { font-size: 1.3rem; }
+  .dashboard { grid-template-columns: repeat(2, 1fr); gap: 0.4rem; }
+  .stat-card .stat-value { font-size: 1.2rem; }
+  .stat-card .stat-label { font-size: 0.65rem; }
+  .collection-table .set-thumb,
+  .collection-table .set-thumb-placeholder,
+  .set-thumb-refresh { width: 30px; height: 30px; }
 }

@@ -49,6 +49,9 @@
     </div>
   </section>
 
+  <!-- ── List Bar ─────────────────────────────────────────────────── -->
+  <section class="list-bar" id="list-bar"></section>
+
   <!-- ── Controls ────────────────────────────────────────────────── -->
   <section class="controls">
     <input type="text" class="search-box" id="search-input" placeholder="Search by name, set number, theme, or notes... (comma = OR)">
@@ -89,6 +92,9 @@
       <option value="no">No Instructions</option>
     </select>
     <input type="text" id="bulk-location" class="search-box" placeholder="Location..." style="max-width:140px;">
+    <select id="bulk-addtolist" class="filter-select">
+      <option value="">Add to List...</option>
+    </select>
     <button class="btn btn-primary btn-sm" onclick="App.bulkApply()">Apply</button>
     <button class="btn btn-secondary btn-sm" onclick="App.bulkClearSelection()">Clear Selection</button>
   </section>
@@ -105,10 +111,11 @@
           <th data-sort="theme" onclick="App.sortBy('theme')">Theme <span class="sort-arrow">▲</span></th>
           <th data-sort="year" onclick="App.sortBy('year')">Year <span class="sort-arrow">▲</span></th>
           <th data-sort="pieceCount" onclick="App.sortBy('pieceCount')">Pieces <span class="sort-arrow">▲</span></th>
-          <th data-sort="status" onclick="App.sortBy('status')">Status <span class="sort-arrow">▲</span></th>
-          <th data-sort="completeness" onclick="App.sortBy('completeness')">Complete? <span class="sort-arrow">▲</span></th>
-          <th style="cursor:default;">Box</th>
-          <th style="cursor:default;">Instr.</th>
+          <th class="col-status" data-sort="status" onclick="App.sortBy('status')">Status <span class="sort-arrow">▲</span></th>
+          <th class="col-complete" data-sort="completeness" onclick="App.sortBy('completeness')">Complete? <span class="sort-arrow">▲</span></th>
+          <th class="col-box" style="cursor:default;">Box</th>
+          <th class="col-instr" style="cursor:default;">Instr.</th>
+          <th class="col-purchased" style="cursor:default; display:none;">Purchased</th>
           <th data-sort="location" onclick="App.sortBy('location')">Location <span class="sort-arrow">▲</span></th>
           <th data-sort="quantity" onclick="App.sortBy('quantity')">Qty <span class="sort-arrow">▲</span></th>
           <th style="cursor:default;">Notes</th>
@@ -154,6 +161,14 @@
           </div>
 
           <input type="hidden" id="form-image-url">
+
+          <div class="form-group">
+            <label for="form-addto">Add to</label>
+            <select id="form-addto">
+              <option value="collection">Collection</option>
+              <option value="wishlist">Wishlist</option>
+            </select>
+          </div>
 
           <div class="form-row">
             <div class="form-group">
